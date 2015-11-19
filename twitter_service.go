@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
@@ -49,7 +50,7 @@ func respondWithError(code int, message string, c *gin.Context) {
 	c.Abort()
 }
 
-func BasicAuthMiddleware(users []User) gin.HandlerFunc {
+func BasicAuthMiddleware(twitterResource *TwitterResource) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		realm := "Basic"
 
@@ -58,6 +59,7 @@ func BasicAuthMiddleware(users []User) gin.HandlerFunc {
 			c.Header("WWW-Authenticate", realm)
 			c.AbortWithStatus(401)
 		} else {
+			users := twitterResource.GetUsers()
 			user, success := searchCredential(token, users)
 			if success {
 				c.Set("user", user)
@@ -74,6 +76,7 @@ func searchCredential(authValue string, users []User) (string, bool) {
 	for _, user := range users {
 		base := user.Name + ":" + user.Password
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(base))
+		fmt.Println("check auth:", user.Name, auth, authValue)
 		if auth == authValue {
 			return user.Name, true
 		}
@@ -107,7 +110,6 @@ func (s *TwitterService) Run(cfg Config) error {
 	db.SingularTable(true)
 
 	twitterResource := &TwitterResource{db: db}
-	users := twitterResource.GetUsers()
 
 	r := gin.Default()
 	//gin.SetMode(gin.ReleaseMode)
@@ -118,7 +120,7 @@ func (s *TwitterService) Run(cfg Config) error {
 		"paul": "1234",
 		"ming": "1234",
 	}))
-	ba := r.Group("/", BasicAuthMiddleware(users))
+	ba := r.Group("/", BasicAuthMiddleware(twitterResource))
 
 	ba.GET("/twitter", twitterResource.GetAllTwitters)
 	ba.GET("/twitter/:id", twitterResource.GetTwitter)
