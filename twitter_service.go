@@ -24,7 +24,7 @@ type TwitterService struct {
 
 func (s *TwitterService) getDb(cfg Config) (gorm.DB, error) {
 	db, err := gorm.Open("sqlite3", cfg.DbName)
-	//db.LogMode(true)
+	db.LogMode(true)
 	return db, err
 }
 
@@ -70,6 +70,7 @@ func (s *TwitterService) Run(cfg Config) error {
 
 	//user+twitter
 	r.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+	r.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
 
 	r.Run(cfg.SvcHost)
 
