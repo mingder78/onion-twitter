@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
-        "github.com/tommy351/gin-cors"
+	"github.com/tommy351/gin-cors"
 )
 
 type Config struct {
@@ -18,7 +18,6 @@ type Config struct {
 	Token      string
 	Url        string
 }
-
 
 type TwitterService struct {
 }
@@ -41,7 +40,7 @@ func (s *TwitterService) Migrate(cfg Config) error {
 }
 func (s *TwitterService) Run(cfg Config) error {
 	s.Migrate(cfg)
-        db, err := s.getDb(cfg)
+	db, err := s.getDb(cfg)
 	if err != nil {
 		return err
 	}
@@ -51,7 +50,7 @@ func (s *TwitterService) Run(cfg Config) error {
 
 	r := gin.Default()
 	//gin.SetMode(gin.ReleaseMode)
-        r.Use(cors.Middleware(cors.Options{}))
+	r.Use(cors.Middleware(cors.Options{}))
 
 	r.GET("/twitter", twitterResource.GetAllTwitters)
 	r.GET("/twitter/:id", twitterResource.GetTwitter)
@@ -60,8 +59,15 @@ func (s *TwitterService) Run(cfg Config) error {
 	r.PATCH("/twitter/:id", twitterResource.PatchTwitter)
 	r.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
 
+	//for user
+	r.GET("/user", twitterResource.GetAllUsers)
+	r.GET("/user/:id", twitterResource.GetUser)
+	r.POST("/user", twitterResource.CreateUser)
+	r.PUT("/user/:id", twitterResource.UpdateUser)
+	r.PATCH("/user/:id", twitterResource.PatchUser)
+	r.DELETE("/user/:id", twitterResource.DeleteUser)
+
 	r.Run(cfg.SvcHost)
 
 	return nil
 }
-
