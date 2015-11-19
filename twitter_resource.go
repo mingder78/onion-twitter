@@ -17,7 +17,7 @@ type TwitterResource struct {
 func (tr *TwitterResource) CreateTwitter(c *gin.Context) {
 	var twitter Twitter
 
-	if !c.Bind(&twitter) {
+	if c.Bind(&twitter) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
 		return
 	}
@@ -38,7 +38,7 @@ func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
 		return
 	}
 	//bind twitter
-	if !c.Bind(&twitter) {
+	if c.Bind(&twitter) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
 		return
 	}
@@ -48,7 +48,6 @@ func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
 	if tr.db.First(&user, id).RecordNotFound() {
 		c.JSON(http.StatusNotFound, gin.H{"message": "user id not found"})
 	} else {
-
 
 		//create a new twitter
 		twitter.Ginger_Created = int32(time.Now().Unix())
@@ -61,7 +60,7 @@ func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
 
 		tr.db.Save(&user)
 		tr.db.Model(&user).Update("twitters", twitter)
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, twitter)
 	}
 }
 
@@ -116,7 +115,7 @@ func (tr *TwitterResource) UpdateTwitter(c *gin.Context) {
 
 	var twitter Twitter
 
-	if !c.Bind(&twitter) {
+	if c.Bind(&twitter) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
 		return
 	}
@@ -145,7 +144,7 @@ func (tr *TwitterResource) PatchTwitter(c *gin.Context) {
 	var json []Patch
 
 	r := c.Bind(&json)
-	if !r {
+	if r != nil {
 		fmt.Println(r)
 	} else {
 		if json[0].Op != "replace" && json[0].Path != "/status" {
@@ -209,7 +208,7 @@ type Patch struct {
 func (tr *TwitterResource) CreateUser(c *gin.Context) {
 	var user User
 
-	if !c.Bind(&user) {
+	if c.Bind(&user) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
 		return
 	}
@@ -219,6 +218,13 @@ func (tr *TwitterResource) CreateUser(c *gin.Context) {
 	tr.db.Save(&user)
 
 	c.JSON(http.StatusCreated, user)
+}
+
+func (tr *TwitterResource) GetUsers() []User {
+	var users []User
+
+	tr.db.Order("ginger__created desc").Find(&users)
+	return users
 }
 
 func (tr *TwitterResource) GetAllUsers(c *gin.Context) {
@@ -260,7 +266,7 @@ func (tr *TwitterResource) UpdateUser(c *gin.Context) {
 
 	var user User
 
-	if !c.Bind(&user) {
+	if c.Bind(&user) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
 		return
 	}
@@ -289,7 +295,7 @@ func (tr *TwitterResource) PatchUser(c *gin.Context) {
 	var json []Patch
 
 	r := c.Bind(&json)
-	if !r {
+	if r != nil {
 		fmt.Println(r)
 	} else {
 		if json[0].Op != "replace" && json[0].Path != "/status" {
