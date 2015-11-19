@@ -68,6 +68,9 @@ func (s *TwitterService) Run(cfg Config) error {
 	r.PATCH("/user/:id", twitterResource.PatchUser)
 	r.DELETE("/user/:id", twitterResource.DeleteUser)
 
+	//user+twitter
+	r.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+
 	r.Run(cfg.SvcHost)
 
 	return nil

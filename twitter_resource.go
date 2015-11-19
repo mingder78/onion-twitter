@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	"log"
@@ -14,13 +15,6 @@ type TwitterResource struct {
 	db gorm.DB
 }
 
-// @Title CreateTwitter
-// @Description get string by ID
-// @Accept  json
-// @Param   some_id     path    int     true        "Some ID"
-// @Success 201 {object} string
-// @Failure 400 {object} APIError "problem decoding body"
-// @Router /twitter/ [post]
 func (tr *TwitterResource) CreateTwitter(c *gin.Context) {
 	var twitter Twitter
 
@@ -34,6 +28,42 @@ func (tr *TwitterResource) CreateTwitter(c *gin.Context) {
 	tr.db.Save(&twitter)
 
 	c.JSON(http.StatusCreated, twitter)
+}
+
+func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
+	var twitter Twitter
+	id, err := tr.getUserId(c)
+	//fmt.Println(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding id sent"})
+		return
+	}
+	//bind twitter
+	if !c.Bind(&twitter) {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
+		return
+	}
+
+	var user User
+
+	if tr.db.First(&user, id).RecordNotFound() {
+		c.JSON(http.StatusNotFound, gin.H{"message": "user id not found"})
+	} else {
+
+		//create a new twitter
+		twitter.Ginger_Created = int32(time.Now().Unix())
+		twitter.User_id = id
+		tr.db.NewRecord(twitter)
+		tr.db.Create(&twitter)
+		b := TwitterId{twitter.Ginger_Id}
+		tr.db.Save(&twitter)
+
+		user.Twitters = append(user.Twitters, b)
+		spew.Dump(twitter)
+		spew.Dump(user)
+		tr.db.Save(&user)
+		c.JSON(http.StatusOK, user)
+	}
 }
 
 func (tr *TwitterResource) GetAllTwitters(c *gin.Context) {
@@ -168,7 +198,7 @@ func (tr *TwitterResource) CreateUser(c *gin.Context) {
 	}
 	//user.Status = UserStatus
 	user.Ginger_Created = int32(time.Now().Unix())
-
+	user.Twitters = make([]TwitterId, 0)
 	tr.db.Save(&user)
 
 	c.JSON(http.StatusCreated, user)
