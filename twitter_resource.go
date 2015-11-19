@@ -50,17 +50,21 @@ func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "user id not found"})
 	} else {
 
+		spew.Dump(user)
+
 		//create a new twitter
 		twitter.Ginger_Created = int32(time.Now().Unix())
 		twitter.UserId = int(id)
 		tr.db.NewRecord(twitter)
 		tr.db.Create(&twitter)
-		user.Twitters = append(user.Twitters, twitter)
 		tr.db.Save(&twitter)
+
+		user.Twitters = append(user.Twitters, twitter)
 
 		spew.Dump(twitter)
 		spew.Dump(user)
 		tr.db.Save(&user)
+		tr.db.Model(&user).Update("twitters", twitter)
 		c.JSON(http.StatusOK, user)
 	}
 }
@@ -215,7 +219,7 @@ func (tr *TwitterResource) CreateUser(c *gin.Context) {
 	}
 	//user.Status = UserStatus
 	user.Ginger_Created = int32(time.Now().Unix())
-	user.Twitters = make([]Twitter, 0)
+	user.Twitters = []Twitter{}
 	tr.db.Save(&user)
 
 	c.JSON(http.StatusCreated, user)
@@ -225,7 +229,14 @@ func (tr *TwitterResource) GetAllUsers(c *gin.Context) {
 	var users []User
 
 	tr.db.Order("ginger__created desc").Find(&users)
+	for index, user := range users {
+		var twitters []Twitter
+		tr.db.Model(&user).Related(&twitters)
+		spew.Dump(twitters)
+		users[index].Twitters = twitters
 
+	}
+	spew.Dump(users)
 	c.JSON(http.StatusOK, users)
 }
 
@@ -235,12 +246,14 @@ func (tr *TwitterResource) GetUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding id sent"})
 		return
 	}
-
 	var user User
-
 	if tr.db.First(&user, id).RecordNotFound() {
 		c.JSON(http.StatusNotFound, gin.H{"message": "not found"})
 	} else {
+		var twitters []Twitter
+		tr.db.Model(&user).Related(&twitters)
+		//spew.Dump(twitters)
+		user.Twitters = twitters
 		c.JSON(http.StatusOK, user)
 	}
 }
