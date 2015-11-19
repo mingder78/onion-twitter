@@ -53,24 +53,29 @@ func (s *TwitterService) Run(cfg Config) error {
 	//gin.SetMode(gin.ReleaseMode)
 	r.Use(cors.Middleware(cors.Options{}))
 
-	r.GET("/twitter", twitterResource.GetAllTwitters)
-	r.GET("/twitter/:id", twitterResource.GetTwitter)
-	r.POST("/twitter", twitterResource.CreateTwitter)
-	r.PUT("/twitter/:id", twitterResource.UpdateTwitter)
-	r.PATCH("/twitter/:id", twitterResource.PatchTwitter)
-	r.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
+	ba := r.Group("/", gin.BasicAuth(gin.Accounts{
+		"paul": "1234",
+		"ming": "1234",
+	}))
+
+	ba.GET("/twitter", twitterResource.GetAllTwitters)
+	ba.GET("/twitter/:id", twitterResource.GetTwitter)
+	ba.POST("/twitter", twitterResource.CreateTwitter)
+	ba.PUT("/twitter/:id", twitterResource.UpdateTwitter)
+	ba.PATCH("/twitter/:id", twitterResource.PatchTwitter)
+	ba.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
 
 	//for user
-	r.GET("/user", twitterResource.GetAllUsers)
-	r.GET("/user/:id", twitterResource.GetUser)
-	r.POST("/user", twitterResource.CreateUser)
-	r.PUT("/user/:id", twitterResource.UpdateUser)
-	r.PATCH("/user/:id", twitterResource.PatchUser)
-	r.DELETE("/user/:id", twitterResource.DeleteUser)
+	ba.GET("/user", twitterResource.GetAllUsers)
+	ba.GET("/user/:id", twitterResource.GetUser)
+	ba.POST("/user", twitterResource.CreateUser)
+	ba.PUT("/user/:id", twitterResource.UpdateUser)
+	ba.PATCH("/user/:id", twitterResource.PatchUser)
+	ba.DELETE("/user/:id", twitterResource.DeleteUser)
 
 	//user+twitter
-	r.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
-	r.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
+	ba.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+	ba.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
 
 	r.Run(cfg.SvcHost)
 
