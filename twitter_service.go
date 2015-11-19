@@ -36,6 +36,7 @@ func (s *TwitterService) Migrate(cfg Config) error {
 	db.SingularTable(true)
 
 	db.AutoMigrate(&Twitter{})
+	db.AutoMigrate(&User{})
 	return nil
 }
 func (s *TwitterService) Run(cfg Config) error {
