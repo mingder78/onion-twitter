@@ -52,13 +52,12 @@ func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
 
 		//create a new twitter
 		twitter.Ginger_Created = int32(time.Now().Unix())
-		twitter.User_id = id
+		twitter.User_Id = id
 		tr.db.NewRecord(twitter)
 		tr.db.Create(&twitter)
-		b := TwitterId{twitter.Ginger_Id}
+		//b := TwitterId{twitter.Ginger_Id}
 		tr.db.Save(&twitter)
 
-		user.Twitters = append(user.Twitters, b)
 		spew.Dump(twitter)
 		spew.Dump(user)
 		tr.db.Save(&user)
@@ -198,7 +197,7 @@ func (tr *TwitterResource) CreateUser(c *gin.Context) {
 	}
 	//user.Status = UserStatus
 	user.Ginger_Created = int32(time.Now().Unix())
-	user.Twitters = make([]TwitterId, 0)
+	//user.Twitters = make([]TwitterId, 0)
 	tr.db.Save(&user)
 
 	c.JSON(http.StatusCreated, user)
