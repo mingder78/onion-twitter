@@ -174,6 +174,9 @@ func (s *TwitterService) Run(cfg Config) error {
 
 	//user+twitter
 	baCheckUser.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+	//user twitter post api
+	ba.POST("/twitter", twitterResource.CreateTwitterWithoutUserId)
+
 	ba.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
 
 	r.Run(cfg.SvcHost)

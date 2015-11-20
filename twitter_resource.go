@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -62,6 +65,41 @@ func (tr *TwitterResource) CreateTwitterByUserId(c *gin.Context) {
 		tr.db.Model(&user).Update("twitters", twitter)
 		c.JSON(http.StatusOK, twitter)
 	}
+}
+
+func decodeBasicAuth(token string, tr *TwitterResource) (User, bool) {
+	var user User
+	encoded := strings.Fields(token)
+	result, _ := base64.StdEncoding.DecodeString(encoded[1])
+	userPass := strings.Split(string(result[:]), ":")
+	userName := userPass[0]
+	tr.db.Where("name = ?", userName).First(&user)
+	return user, true
+}
+
+func (tr *TwitterResource) CreateTwitterWithoutUserId(c *gin.Context) {
+	token := c.Request.Header.Get("Authorization")
+	user, _ := decodeBasicAuth(token, tr)
+
+	var twitter Twitter
+	//bind twitter
+	if c.Bind(&twitter) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding body"})
+		return
+	}
+
+	//create a new twitter
+	twitter.Ginger_Created = int32(time.Now().Unix())
+	twitter.UserId = int(user.Ginger_Id)
+	tr.db.NewRecord(twitter)
+	tr.db.Create(&twitter)
+	tr.db.Save(&twitter)
+
+	user.Twitters = append(user.Twitters, twitter)
+
+	tr.db.Save(&user)
+	tr.db.Model(&user).Update("twitters", twitter)
+	c.JSON(http.StatusOK, twitter)
 }
 
 func (tr *TwitterResource) GetAllTwitters(c *gin.Context) {
