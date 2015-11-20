@@ -4,11 +4,11 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tommy351/gin-cors"
+	"net/http"
 	"os"
 )
 
@@ -50,6 +50,41 @@ func respondWithError(code int, message string, c *gin.Context) {
 	c.Abort()
 }
 
+// check User id with Basic Auth, it not the owner who can't keep doing the rest
+func CheckUserBasicAuthMiddleware(twitterResource *TwitterResource) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := twitterResource.getUserId(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding id sent"})
+			return
+		}
+
+		realm := "Basic"
+
+		token := c.Request.Header.Get("Authorization")
+		if token == "" {
+			c.Header("WWW-Authenticate", realm)
+			c.AbortWithStatus(401)
+		} else {
+			users := twitterResource.GetUsers()
+			user, success := searchCredential(token, users)
+			if success {
+				c.Set("user", user.Name)
+				if user.Ginger_Id == id {
+					c.Next()
+				} else {
+					c.JSON(http.StatusBadRequest, gin.H{"message": "You are not the user."})
+					c.AbortWithStatus(401)
+				}
+			} else {
+				c.Header("WWW-Authenticate", realm)
+				c.AbortWithStatus(401)
+				return
+			}
+		}
+	}
+}
+
 func BasicAuthMiddleware(twitterResource *TwitterResource) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		realm := "Basic"
@@ -72,16 +107,15 @@ func BasicAuthMiddleware(twitterResource *TwitterResource) gin.HandlerFunc {
 	}
 }
 
-func searchCredential(authValue string, users []User) (string, bool) {
+func searchCredential(authValue string, users []User) (User, bool) {
 	for _, user := range users {
 		base := user.Name + ":" + user.Password
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(base))
-		fmt.Println("check auth:", user.Name, auth, authValue)
 		if auth == authValue {
-			return user.Name, true
+			return user, true
 		}
 	}
-	return "", false
+	return User{}, false
 }
 
 func TokenAuthMiddleware() gin.HandlerFunc {
@@ -121,24 +155,25 @@ func (s *TwitterService) Run(cfg Config) error {
 		"ming": "1234",
 	}))
 	ba := r.Group("/", BasicAuthMiddleware(twitterResource))
+	baCheckUser := r.Group("/", CheckUserBasicAuthMiddleware(twitterResource))
 
 	ba.GET("/twitter", twitterResource.GetAllTwitters)
 	ba.GET("/twitter/:id", twitterResource.GetTwitter)
-	ba.POST("/twitter", twitterResource.CreateTwitter)
-	ba.PUT("/twitter/:id", twitterResource.UpdateTwitter)
-	ba.PATCH("/twitter/:id", twitterResource.PatchTwitter)
-	ba.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
+	//ba.POST("/twitter", twitterResource.CreateTwitter)
+	//ba.PUT("/twitter/:id", twitterResource.UpdateTwitter)
+	//ba.PATCH("/twitter/:id", twitterResource.PatchTwitter)
+	//ba.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
 
 	//for user
 	ba.GET("/user", twitterResource.GetAllUsers)
-	ba.GET("/user/:id", twitterResource.GetUser)
+	baCheckUser.GET("/user/:id", twitterResource.GetUser)
 	admin.POST("/user", twitterResource.CreateUser)
-	ba.PUT("/user/:id", twitterResource.UpdateUser)
-	ba.PATCH("/user/:id", twitterResource.PatchUser)
-	ba.DELETE("/user/:id", twitterResource.DeleteUser)
+	baCheckUser.PUT("/user/:id", twitterResource.UpdateUser)
+	baCheckUser.PATCH("/user/:id", twitterResource.PatchUser)
+	baCheckUser.DELETE("/user/:id", twitterResource.DeleteUser)
 
 	//user+twitter
-	ba.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+	baCheckUser.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
 	ba.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
 
 	r.Run(cfg.SvcHost)
