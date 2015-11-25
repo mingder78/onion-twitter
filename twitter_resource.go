@@ -342,3 +342,20 @@ func (tr *TwitterResource) getUserId(c *gin.Context) (int32, error) {
 	}
 	return int32(id), nil
 }
+
+func (tr *TwitterResource) SwaggerCity(c *gin.Context) {
+	c.HTML(http.StatusOK, "swagger", gin.H{
+		"lowerCase": "city",
+		"url":       "api.log4security.com:30194",
+		"dataType": `       "name": {
+                    "type": "string"
+                },
+                "age": {
+                    "type": "integer",
+                    "format": "int"
+                },
+                "address": {
+                    "type": "string"
+                }`,
+	})
+}

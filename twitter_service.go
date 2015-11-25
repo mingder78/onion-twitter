@@ -50,6 +50,7 @@ func (s *TwitterService) Run(cfg Config) error {
 	twitterResource := &TwitterResource{db: db}
 
 	r := gin.Default()
+	r.SetHTMLTemplate(html)
 	//gin.SetMode(gin.ReleaseMode)
 	r.Use(cors.Middleware(cors.Options{}))
 
@@ -77,6 +78,7 @@ func (s *TwitterService) Run(cfg Config) error {
 	ba.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
 	ba.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
 
+	r.GET("/v2/doc/swagger.json", twitterResource.SwaggerCity)
 	r.Run(cfg.SvcHost)
 
 	return nil
