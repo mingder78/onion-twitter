@@ -3,10 +3,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/tommy351/gin-cors"
+	"net/http"
+	"os"
 )
 
 type Config struct {
@@ -39,6 +42,99 @@ func (s *TwitterService) Migrate(cfg Config) error {
 	db.AutoMigrate(&User{})
 	return nil
 }
+
+func respondWithError(code int, message string, c *gin.Context) {
+	resp := map[string]string{"error": message}
+
+	c.JSON(code, resp)
+	c.Abort()
+}
+
+// check User id with Basic Auth, it not the owner who can't keep doing the rest
+func CheckUserBasicAuthMiddleware(twitterResource *TwitterResource) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := twitterResource.getUserId(c)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "problem decoding id sent"})
+			return
+		}
+
+		realm := "Basic"
+
+		token := c.Request.Header.Get("Authorization")
+		if token == "" {
+			c.Header("WWW-Authenticate", realm)
+			c.AbortWithStatus(401)
+		} else {
+			users := twitterResource.GetUsers()
+			user, success := searchCredential(token, users)
+			if success {
+				c.Set("user", user.Name)
+				if user.Ginger_Id == id {
+					c.Next()
+				} else {
+					c.JSON(http.StatusBadRequest, gin.H{"message": "You are not the user."})
+					c.AbortWithStatus(401)
+				}
+			} else {
+				c.Header("WWW-Authenticate", realm)
+				c.AbortWithStatus(401)
+				return
+			}
+		}
+	}
+}
+
+func BasicAuthMiddleware(twitterResource *TwitterResource) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		realm := "Basic"
+
+		token := c.Request.Header.Get("Authorization")
+		if token == "" {
+			c.Header("WWW-Authenticate", realm)
+			c.AbortWithStatus(401)
+		} else {
+			users := twitterResource.GetUsers()
+			user, success := searchCredential(token, users)
+			if success {
+				c.Set("user", user)
+				c.Next()
+			} else {
+				c.Header("WWW-Authenticate", realm)
+				c.AbortWithStatus(401)
+			}
+		}
+	}
+}
+
+func searchCredential(authValue string, users []User) (User, bool) {
+	for _, user := range users {
+		base := user.Name + ":" + user.Password
+		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(base))
+		if auth == authValue {
+			return user, true
+		}
+	}
+	return User{}, false
+}
+
+func TokenAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Request.FormValue("api_token")
+		if token == "" {
+			respondWithError(401, "API token required", c)
+			return
+		}
+
+		api_token := os.Getenv("API_TOKEN")
+		if token != api_token {
+			respondWithError(401, "Invalid API token", c)
+			return
+		}
+		c.Next()
+	}
+}
+
 func (s *TwitterService) Run(cfg Config) error {
 	s.Migrate(cfg)
 	db, err := s.getDb(cfg)
@@ -53,29 +149,35 @@ func (s *TwitterService) Run(cfg Config) error {
 	r.SetHTMLTemplate(html)
 	//gin.SetMode(gin.ReleaseMode)
 	r.Use(cors.Middleware(cors.Options{}))
+	//	r.Use(TokenAuthMiddleware())
 
-	ba := r.Group("/", gin.BasicAuth(gin.Accounts{
+	admin := r.Group("/admin", gin.BasicAuth(gin.Accounts{
 		"paul": "1234",
 		"ming": "1234",
 	}))
+	ba := r.Group("/", BasicAuthMiddleware(twitterResource))
+	baCheckUser := r.Group("/", CheckUserBasicAuthMiddleware(twitterResource))
 
 	ba.GET("/twitter", twitterResource.GetAllTwitters)
 	ba.GET("/twitter/:id", twitterResource.GetTwitter)
-	ba.POST("/twitter", twitterResource.CreateTwitter)
-	ba.PUT("/twitter/:id", twitterResource.UpdateTwitter)
-	ba.PATCH("/twitter/:id", twitterResource.PatchTwitter)
-	ba.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
+	//ba.POST("/twitter", twitterResource.CreateTwitter)
+	//ba.PUT("/twitter/:id", twitterResource.UpdateTwitter)
+	//ba.PATCH("/twitter/:id", twitterResource.PatchTwitter)
+	//ba.DELETE("/twitter/:id", twitterResource.DeleteTwitter)
 
 	//for user
 	ba.GET("/user", twitterResource.GetAllUsers)
-	ba.GET("/user/:id", twitterResource.GetUser)
-	ba.POST("/user", twitterResource.CreateUser)
-	ba.PUT("/user/:id", twitterResource.UpdateUser)
-	ba.PATCH("/user/:id", twitterResource.PatchUser)
-	ba.DELETE("/user/:id", twitterResource.DeleteUser)
+	baCheckUser.GET("/user/:id", twitterResource.GetUser)
+	admin.POST("/user", twitterResource.CreateUser)
+	baCheckUser.PUT("/user/:id", twitterResource.UpdateUser)
+	baCheckUser.PATCH("/user/:id", twitterResource.PatchUser)
+	baCheckUser.DELETE("/user/:id", twitterResource.DeleteUser)
 
 	//user+twitter
-	ba.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+	baCheckUser.POST("/twitter/user/:id", twitterResource.CreateTwitterByUserId)
+	//user twitter post api
+	ba.POST("/twitter", twitterResource.CreateTwitterWithoutUserId)
+
 	ba.GET("/user/:id/twitter", twitterResource.GetTwittersByUserId)
 
 	r.GET("/v2/doc/swagger.json", twitterResource.SwaggerCity)
